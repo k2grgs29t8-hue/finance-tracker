@@ -113,9 +113,36 @@ header h1{font-size:17px;font-weight:600;margin-bottom:.75rem;display:flex;align
 #loading-overlay .lo-icon{font-size:40px}
 #loading-overlay .lo-text{color:#fff;font-size:15px;font-weight:500}
 #loading-overlay .lo-sub{color:rgba(255,255,255,.5);font-size:13px}
+/* lock screen */
+#lock-screen{position:fixed;inset:0;background:var(--green-dark);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:10000;padding:2rem}
+#lock-screen.hidden{display:none}
+#lock-screen .lk-icon{font-size:48px}
+#lock-screen .lk-title{color:#fff;font-size:20px;font-weight:700;letter-spacing:.01em}
+#lock-screen .lk-sub{color:rgba(255,255,255,.5);font-size:13px;margin-top:-8px}
+#lock-screen .lk-input-wrap{width:100%;max-width:280px;position:relative}
+#lock-screen input{width:100%;padding:13px 44px 13px 16px;font-size:16px;border-radius:var(--radius-sm);border:2px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;outline:none;transition:border-color .2s}
+#lock-screen input::placeholder{color:rgba(255,255,255,.4)}
+#lock-screen input:focus{border-color:var(--green-light)}
+#lock-screen .lk-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:18px;padding:2px}
+#lock-screen .lk-btn{width:100%;max-width:280px;padding:13px;font-size:15px;font-weight:700;border-radius:var(--radius-sm);border:none;background:var(--green-light);color:var(--green-dark);cursor:pointer;transition:background .15s;letter-spacing:.01em}
+#lock-screen .lk-btn:active{background:#fff}
+#lock-screen .lk-error{color:#F09595;font-size:13px;font-weight:500;min-height:18px;text-align:center}
 </style>
 </head>
 <body>
+
+<div id="lock-screen">
+  <div class="lk-icon">🔐</div>
+  <div class="lk-title">Finance Tracker</div>
+  <div class="lk-sub">Enter your password to continue</div>
+  <div class="lk-input-wrap">
+    <input type="password" id="lk-input" placeholder="Password"
+      onkeydown="if(event.key==='Enter') unlockApp()">
+    <button class="lk-eye" onclick="togglePwVis()" title="Show/hide">👁</button>
+  </div>
+  <button class="lk-btn" onclick="unlockApp()">Unlock</button>
+  <div class="lk-error" id="lk-error"></div>
+</div>
 
 <div id="loading-overlay">
   <div class="lo-icon">💰</div>
@@ -181,6 +208,50 @@ header h1{font-size:17px;font-weight:600;margin-bottom:.75rem;display:flex;align
 <div id="toast"></div>
 
 <script>
+/* ════════════════════════════════════════
+   PASSWORD GATE
+   Password hash (SHA-256): stored — never plain text in the file
+════════════════════════════════════════ */
+const PW_HASH = '07cbe6bc38ab5964c13177c814842080de5dbc5073ead3ae67b09542d4359f26';
+const SESSION_KEY = 'ft-auth';
+
+async function sha256(str){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function unlockApp(){
+  const input = document.getElementById('lk-input');
+  const errEl = document.getElementById('lk-error');
+  const hash  = await sha256(input.value);
+  if(hash === PW_HASH){
+    sessionStorage.setItem(SESSION_KEY, '1');
+    document.getElementById('lock-screen').classList.add('hidden');
+    initApp();
+  } else {
+    errEl.textContent = 'Incorrect password — try again';
+    input.value = '';
+    input.focus();
+    setTimeout(()=>{ errEl.textContent=''; }, 3000);
+  }
+}
+
+function togglePwVis(){
+  const inp = document.getElementById('lk-input');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  inp.focus();
+}
+
+/* Check if already unlocked this session */
+if(sessionStorage.getItem(SESSION_KEY) === '1'){
+  document.getElementById('lock-screen').classList.add('hidden');
+} else {
+  /* Focus the password field on load */
+  window.addEventListener('load', ()=>{
+    setTimeout(()=>document.getElementById('lk-input').focus(), 100);
+  });
+}
+
 /* ════════════════════════════════════════
    SUPABASE CONFIG
 ════════════════════════════════════════ */
@@ -784,8 +855,10 @@ function toast(msg){
 /* ════════════════════════════════════════
    INIT
 ════════════════════════════════════════ */
-(async()=>{
+async function initApp(){
   const loSub=document.getElementById('lo-sub');
+  const loOv=document.getElementById('loading-overlay');
+  if(loOv){ loOv.classList.remove('hidden'); loOv.style.display=''; }
   try{
     loSub.textContent='Loading your data…';
     await cloudLoad();
@@ -816,7 +889,10 @@ function toast(msg){
 
   /* Also refresh every 60s while the page is open */
   setInterval(()=>{ if(document.visibilityState==='visible') refreshSnapshots(true); }, 60000);
-})();
+}
+
+/* Auto-start if session already authenticated */
+if(sessionStorage.getItem(SESSION_KEY) === '1') initApp();
 </script>
 </body>
 </html>
