@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finance Tracker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green-dark:#213B34;--green-mid:#006325;--green-light:#A1CEAD;--green-pale:#D9E8E2;
+  --blue-dark:#185FA5;--blue-light:#BFE2F6;
+  --gray-bg:#F5F4F0;--red-bg:#FCEBEB;--red-border:#F09595;--red-text:#A32D2D;
+  --text:#1a1a1a;--text-muted:#555;--text-faint:#999;--border:#ddd;--white:#fff;
+  --radius:10px;--radius-sm:6px;
+  --right-col:148px;--val-w:108px;--adj-btn-w:32px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--gray-bg);color:var(--text);min-height:100vh;padding-bottom:3rem}
+header{background:var(--green-dark);color:#fff;padding:1rem 1.25rem 0;position:sticky;top:0;z-index:100}
+header h1{font-size:17px;font-weight:600;margin-bottom:.75rem;display:flex;align-items:center;gap:8px}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#A1CEAD;flex-shrink:0;transition:background .3s}
+.sync-dot.syncing{background:#FAC775;animation:pulse .8s infinite alternate}
+.sync-dot.error{background:#F09595}
+@keyframes pulse{from{opacity:.4}to{opacity:1}}
+.tab-bar{display:flex}
+.tab{flex:1;padding:10px 4px;font-size:13px;font-weight:500;text-align:center;cursor:pointer;color:rgba(255,255,255,.5);border:none;background:none;border-bottom:2.5px solid transparent;transition:color .15s,border-color .15s}
+.tab.active{color:#fff;border-bottom-color:var(--green-light)}
+.page{display:none;padding:1rem 1rem 0}
+.page.active{display:block}
+.curr-toggle{display:flex;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:1rem;background:var(--white)}
+.curr-btn{flex:1;padding:9px 4px;font-size:13px;font-weight:500;border:none;background:none;cursor:pointer;color:var(--text-muted);transition:background .15s,color .15s}
+.curr-btn.active{background:var(--green-mid);color:#fff}
+.section-header{display:flex;align-items:center;margin:1.25rem 0 .4rem}
+.section-header .sh-left{flex:1;display:flex;align-items:center;gap:5px;min-width:0}
+.section-header .sh-title{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint)}
+.section-header .sh-right{width:var(--right-col);display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-shrink:0}
+.section-header .sh-subtotal{font-size:13px;font-weight:700;color:var(--text);text-align:right}
+.section-header .sh-sublbl{font-size:11px;color:var(--text-faint);font-weight:500}
+.section-header .sh-add-btn{border:none;background:none;cursor:pointer;color:var(--text-faint);font-size:16px;padding:3px;line-height:1;border-radius:4px}
+.section-header .sh-add-btn:hover{color:var(--green-mid)}
+.field-row{display:flex;align-items:center;background:var(--white);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:5px;padding:0 8px 0 10px;min-height:44px;gap:0}
+.field-row.edit-mode{border-color:var(--green-light)}
+.field-row.has-comment{border-left:3px solid #7CC5EB;padding-left:8px}
+.field-lbl{font-size:14px;color:var(--text-muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:4px}
+.field-lbl-input{flex:1;font-size:14px;color:var(--text);border:none;outline:none;background:transparent;padding:2px 4px 2px 0;min-width:0}
+.cmt-btn{width:26px;height:26px;border:none;background:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:4px;position:relative;color:var(--text-faint);transition:color .12s}
+.cmt-btn:hover{color:var(--blue-dark)}
+.cmt-btn.has-note{color:var(--blue-dark)}
+.cmt-btn.has-note::after{content:'';position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:#7CC5EB}
+.field-right{width:var(--right-col);display:flex;align-items:center;justify-content:flex-end;flex-shrink:0;gap:0}
+.field-val{width:var(--val-w);font-size:15px;font-weight:500;text-align:right;border:none;outline:none;color:var(--text);background:transparent;padding:6px 0}
+.field-val::placeholder{color:#ccc;font-weight:400}
+.adj-toggle{width:var(--adj-btn-w);height:28px;border:1px solid var(--border);border-radius:var(--radius-sm);background:none;cursor:pointer;font-size:14px;font-weight:600;color:var(--text-faint);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .12s,color .12s,border-color .12s}
+.adj-toggle:hover{border-color:var(--green-light);color:var(--green-mid)}
+.adj-toggle.open{background:var(--green-pale);border-color:var(--green-light);color:var(--green-mid)}
+.adj-panel{background:var(--white);border:1px solid var(--green-light);border-radius:0 0 var(--radius-sm) var(--radius-sm);border-top:none;padding:8px 10px;display:flex;align-items:center;gap:6px;margin-top:-6px;margin-bottom:5px}
+.adj-panel input{flex:1;min-width:0;font-size:14px;font-weight:500;text-align:right;border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 8px;outline:none;color:var(--text)}
+.adj-panel input:focus{border-color:var(--green-light)}
+.adj-panel .adj-hint{font-size:11px;color:var(--text-faint);white-space:nowrap}
+.adj-btn{height:32px;padding:0 14px;font-size:14px;font-weight:700;border-radius:var(--radius-sm);border:none;cursor:pointer;flex-shrink:0}
+.adj-btn.plus{background:var(--green-pale);color:var(--green-mid)}
+.adj-btn.plus:active{background:var(--green-light)}
+.adj-btn.minus{background:var(--red-bg);color:var(--red-text)}
+.adj-btn.minus:active{background:var(--red-border)}
+.cmt-panel{background:var(--white);border:1px solid #7CC5EB;border-radius:0 0 var(--radius-sm) var(--radius-sm);border-top:none;padding:8px 10px;margin-top:-6px;margin-bottom:5px}
+.cmt-panel-inner{display:flex;gap:6px;align-items:flex-start}
+.cmt-panel textarea{flex:1;font-size:13px;font-family:inherit;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;resize:none;outline:none;color:var(--text);line-height:1.5;min-height:56px}
+.cmt-panel textarea:focus{border-color:#7CC5EB}
+.cmt-panel-btns{display:flex;flex-direction:column;gap:5px;flex-shrink:0}
+.cmt-save{height:32px;padding:0 12px;font-size:13px;font-weight:600;border-radius:var(--radius-sm);border:none;cursor:pointer;background:var(--blue-dark);color:#fff;white-space:nowrap}
+.cmt-save:active{opacity:.85}
+.cmt-clear{height:32px;padding:0 12px;font-size:13px;font-weight:500;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;background:none;color:var(--text-muted);white-space:nowrap}
+.cmt-display{font-size:12px;color:#185FA5;background:var(--blue-light);border:1px solid #BFE2F6;border-radius:0 0 var(--radius-sm) var(--radius-sm);padding:5px 10px;margin-top:-6px;margin-bottom:5px;line-height:1.45;cursor:pointer}
+.cmt-display:hover{background:#a8d4f0}
+.icon-btn{border:none;background:none;cursor:pointer;color:var(--text-faint);font-size:17px;padding:4px 2px;flex-shrink:0;line-height:1;border-radius:4px;transition:color .12s}
+.icon-btn.del:hover{color:var(--red-text)}
+.avail-card{border-radius:var(--radius);padding:1rem 1.25rem;margin:1rem 0 1rem;background:var(--green-pale);border:1px solid var(--green-light)}
+.avail-card.neg{background:var(--red-bg);border-color:var(--red-border)}
+.avail-card .lbl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--green-mid);margin-bottom:4px}
+.avail-card.neg .lbl{color:var(--red-text)}
+.avail-card .amount{font-size:30px;font-weight:700;color:var(--green-dark);letter-spacing:-.01em}
+.avail-card.neg .amount{color:var(--red-text)}
+.avail-card .sub{font-size:12px;color:#3B6D11;margin-top:3px}
+.avail-card.neg .sub{color:var(--red-text)}
+.btn-primary{width:100%;padding:13px;font-size:15px;font-weight:600;border-radius:var(--radius-sm);border:none;background:var(--green-mid);color:#fff;cursor:pointer;margin-bottom:10px}
+.btn-primary:active{opacity:.85}
+.btn-outline{width:100%;padding:11px;font-size:14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--white);color:var(--text-muted);cursor:pointer;margin-bottom:10px}
+.summary-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1rem}
+.summary-card .card-head{background:var(--green-dark);color:#fff;font-size:13px;font-weight:600;padding:8px 14px}
+.summary-card .card-head.blue{background:var(--blue-dark)}
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid #f0f0f0;font-size:14px}
+.summary-row:last-child{border-bottom:none}
+.summary-row .lbl{color:var(--text-muted)}
+.summary-row .val{font-weight:600}
+.summary-row.total .lbl{color:var(--text);font-weight:600}
+.summary-row.total .val{font-size:15px}
+.snap-item{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;cursor:pointer;display:flex;align-items:flex-start;gap:10px}
+.snap-item:active{background:#f8f8f8}
+.snap-date{font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px}
+.snap-tags{display:flex;gap:6px;flex-wrap:wrap}
+.snap-tag{font-size:12px;font-weight:600;padding:3px 9px;border-radius:20px}
+.snap-tag.mxn{background:var(--green-pale);color:var(--green-mid)}
+.snap-tag.usd{background:var(--blue-light);color:var(--blue-dark)}
+.snap-tag.neg{background:var(--red-bg);color:var(--red-text)}
+.snap-del{color:#ccc;font-size:18px;border:none;background:none;cursor:pointer;padding:2px 4px;flex-shrink:0}
+.snap-del:active{color:var(--red-text)}
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--text-faint);font-size:14px;line-height:1.7}
+.empty-state .icon{font-size:36px;margin-bottom:.5rem}
+#toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--green-dark);color:#fff;font-size:13px;font-weight:500;padding:9px 20px;border-radius:20px;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;z-index:9999}
+.edit-hint{font-size:11px;color:var(--green-mid);padding:4px 0 8px;text-align:center}
+/* loading overlay */
+#loading-overlay{position:fixed;inset:0;background:var(--green-dark);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:9999;transition:opacity .3s}
+#loading-overlay.hidden{opacity:0;pointer-events:none}
+#loading-overlay .lo-icon{font-size:40px}
+#loading-overlay .lo-text{color:#fff;font-size:15px;font-weight:500}
+#loading-overlay .lo-sub{color:rgba(255,255,255,.5);font-size:13px}
+</style>
+</head>
+<body>
+
+<div id="loading-overlay">
+  <div class="lo-icon">💰</div>
+  <div class="lo-text">Finance Tracker</div>
+  <div class="lo-sub" id="lo-sub">Connecting to cloud…</div>
+</div>
+
+<header>
+  <h1>
+    <span id="sync-dot" class="sync-dot" title="Sync status"></span>
+    Finance Tracker
+  </h1>
+  <div class="tab-bar">
+    <button class="tab active" id="tab-entry"  onclick="switchTab('entry')">Entry</button>
+    <button class="tab"        id="tab-summary" onclick="switchTab('summary')">Summary</button>
+    <button class="tab"        id="tab-history" onclick="switchTab('history')">History</button>
+  </div>
+</header>
+
+<div id="page-entry" class="page active">
+  <div class="curr-toggle">
+    <button class="curr-btn active" id="cbtn-mxn" onclick="switchCurr('mxn')">🇲🇽 Pesos (MXN)</button>
+    <button class="curr-btn"        id="cbtn-usd" onclick="switchCurr('usd')">🇺🇸 Dollars (USD)</button>
+  </div>
+  <div id="mxn-form"></div>
+  <div id="usd-form" style="display:none"></div>
+  <button class="btn-primary" onclick="saveSnapshot()">💾 Save Snapshot</button>
+  <button class="btn-outline"  onclick="clearValues()">Clear all values</button>
+</div>
+
+<div id="page-summary" class="page">
+  <div id="sm-source-bar" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+    <span id="sm-source-lbl" style="font-size:12px;color:var(--text-faint);font-weight:500"></span>
+  </div>
+  <div class="summary-card">
+    <div class="card-head">🇲🇽 MXN — Pesos</div>
+    <div class="summary-row"><span class="lbl">Total assets</span><span class="val" id="sm-mxn-assets">$0.00</span></div>
+    <div class="summary-row"><span class="lbl">Utilities</span><span class="val" id="sm-mxn-fixed">$0.00</span></div>
+    <div class="summary-row"><span class="lbl">Debts</span><span class="val" id="sm-mxn-debts">$0.00</span></div>
+    <div class="summary-row"><span class="lbl">Budget allocated</span><span class="val" id="sm-mxn-budget">$0.00</span></div>
+    <div class="summary-row total"><span class="lbl">Available</span><span class="val" id="sm-mxn-avail" style="color:var(--green-mid)">$0.00</span></div>
+  </div>
+  <div class="summary-card">
+    <div class="card-head blue">🇺🇸 USD — Dollars</div>
+    <div class="summary-row"><span class="lbl">Total assets</span><span class="val" id="sm-usd-assets">$0.00</span></div>
+    <div class="summary-row"><span class="lbl">Utilities</span><span class="val" id="sm-usd-fixed">$0.00</span></div>
+    <div class="summary-row"><span class="lbl">Debts</span><span class="val" id="sm-usd-debts">$0.00</span></div>
+    <div class="summary-row"><span class="lbl">Budget allocated</span><span class="val" id="sm-usd-budget">$0.00</span></div>
+    <div class="summary-row total"><span class="lbl">Available</span><span class="val" id="sm-usd-avail" style="color:var(--blue-dark)">$0.00</span></div>
+  </div>
+</div>
+
+<div id="page-history" class="page">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+    <span style="font-size:12px;color:var(--text-faint);font-weight:500">Tap a snapshot to load it</span>
+    <button onclick="refreshSnapshots(false)" style="font-size:13px;color:var(--green-mid);background:none;border:none;cursor:pointer;font-weight:500;padding:4px 0">↻ Refresh</button>
+  </div>
+  <div id="history-list">
+    <div class="empty-state"><div class="icon">📅</div>No snapshots saved yet.</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ════════════════════════════════════════
+   SUPABASE CONFIG
+════════════════════════════════════════ */
+const SB_URL = 'https://lkiyvrzlupaggtoyxune.supabase.co';
+const SB_KEY = 'sb_publishable_QproOw5PyvJeDcDUOQYQYA_UuD0uvHs';
+const HEADERS = {
+  'apikey': SB_KEY,
+  'Authorization': 'Bearer ' + SB_KEY,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=representation'
+};
+
+async function sbGet(table, params=''){
+  const r = await fetch(`${SB_URL}/rest/v1/${table}?${params}`, {headers: HEADERS});
+  if(!r.ok){
+    const body = await r.text();
+    throw new Error(`${r.status} ${r.statusText} — ${body}`);
+  }
+  return r.json();
+}
+async function sbUpsert(table, body){
+  const r = await fetch(`${SB_URL}/rest/v1/${table}`, {
+    method:'POST',
+    headers:{...HEADERS, 'Prefer':'resolution=merge-duplicates,return=representation'},
+    body: JSON.stringify(body)
+  });
+  if(!r.ok){
+    const b = await r.text();
+    throw new Error(`${r.status} ${r.statusText} — ${b}`);
+  }
+  return r.json();
+}
+async function sbDelete(table, params){
+  const r = await fetch(`${SB_URL}/rest/v1/${table}?${params}`, {
+    method:'DELETE', headers: HEADERS
+  });
+  if(!r.ok){
+    const b = await r.text();
+    throw new Error(`${r.status} ${r.statusText} — ${b}`);
+  }
+}
+
+/* ════════════════════════════════════════
+   DEFAULT STRUCTURE
+════════════════════════════════════════ */
+const DEFAULT_STRUCTURE = {
+  mxn:[
+    {id:'s1',title:'Accounts & Cash',type:'asset',fields:[
+      {id:'f1',label:'Bank account 1',value:'',comment:''},
+      {id:'f2',label:'Bank account 2',value:'',comment:''},
+      {id:'f3',label:'Cash on hand',value:'',comment:''}
+    ]},
+    {id:'s2',title:'Utilities',type:'fixed',fields:[
+      {id:'f4',label:'Rent',value:'',comment:''},
+      {id:'f5',label:'Utilities',value:'',comment:''},
+      {id:'f6',label:'Other fixed',value:'',comment:''}
+    ]},
+    {id:'s3',title:'Debts',type:'debt',fields:[
+      {id:'f7',label:'Credit card',value:'',comment:''},
+      {id:'f8',label:'Loan payment',value:'',comment:''}
+    ]},
+    {id:'s4',title:'Weekly Budget',type:'budget',fields:[
+      {id:'f9',label:'Food & daily expenses',value:'',comment:''},
+      {id:'f10',label:'Other budget',value:'',comment:''}
+    ]}
+  ],
+  usd:[
+    {id:'s6',title:'Accounts & Cash',type:'asset',fields:[
+      {id:'f20',label:'Checking account',value:'',comment:''},
+      {id:'f21',label:'Savings account',value:'',comment:''},
+      {id:'f22',label:'Cash on hand',value:'',comment:''}
+    ]},
+    {id:'s7',title:'Utilities',type:'fixed',fields:[
+      {id:'f23',label:'Rent / mortgage',value:'',comment:''},
+      {id:'f24',label:'Utilities',value:'',comment:''},
+      {id:'f25',label:'Subscriptions',value:'',comment:''},
+      {id:'f26',label:'Other fixed',value:'',comment:''}
+    ]},
+    {id:'s8',title:'Debts',type:'debt',fields:[
+      {id:'f27',label:'Credit card',value:'',comment:''},
+      {id:'f28',label:'Loan payment',value:'',comment:''}
+    ]},
+    {id:'s9',title:'Weekly Budget',type:'budget',fields:[
+      {id:'f29',label:'Food & groceries',value:'',comment:''},
+      {id:'f30',label:'Gas / transport',value:'',comment:''},
+      {id:'f31',label:'Other budget',value:'',comment:''}
+    ]}
+  ]
+};
+
+/* ════════════════════════════════════════
+   STATE
+════════════════════════════════════════ */
+let structure = JSON.parse(JSON.stringify(DEFAULT_STRUCTURE));
+let snapshots = [];
+let editMode  = false;
+let curr      = 'mxn';
+let _idCtr    = 200;
+let openAdjId = null;
+let openCmtId = null;
+let syncTimer = null;
+
+function uid(){ return 'f'+(++_idCtr)+'_'+Date.now(); }
+
+/* ════════════════════════════════════════
+   SYNC STATUS DOT
+════════════════════════════════════════ */
+function setSyncDot(state){ /* idle | syncing | error */
+  const d = document.getElementById('sync-dot');
+  if(!d) return;
+  d.className = 'sync-dot' + (state==='syncing'?' syncing':state==='error'?' error':'');
+  d.title = state==='syncing'?'Syncing…':state==='error'?'Sync error — data saved locally':'Synced';
+}
+
+/* ════════════════════════════════════════
+   CLOUD PERSISTENCE
+   - structure stored in `data` table, key='structure'
+   - snapshots stored in `snapshots` table
+════════════════════════════════════════ */
+async function cloudSaveStructure(){
+  setSyncDot('syncing');
+  try{
+    await sbUpsert('data', {key:'structure', value: structure});
+    localStorage.setItem('ft-structure', JSON.stringify(structure));
+    setSyncDot('idle');
+  }catch(e){
+    console.error('Cloud save failed:', e.message);
+    localStorage.setItem('ft-structure', JSON.stringify(structure));
+    setSyncDot('error');
+  }
+}
+
+async function cloudSaveSnapshot(snap){
+  setSyncDot('syncing');
+  try{
+    await sbUpsert('snapshots', {
+      snap_id: snap.id,
+      label:   snap.label,
+      mxn_avail: snap.mxn.avail,
+      usd_avail: snap.usd.avail,
+      data:    snap
+    });
+    setSyncDot('idle');
+  }catch(e){
+    console.warn('Snapshot cloud save failed', e);
+    setSyncDot('error');
+  }
+}
+
+async function cloudDeleteSnapshot(snapId){
+  try{
+    await sbDelete('snapshots', `snap_id=eq.${snapId}`);
+  }catch(e){ console.warn('Delete failed', e); }
+}
+
+async function cloudLoad(){
+  /* load structure */
+  try{
+    const rows = await sbGet('data', 'key=eq.structure&select=value');
+    if(rows && rows.length && rows[0].value){
+      structure = rows[0].value;
+      backfillComments();
+    }
+  }catch(e){
+    console.error('Structure load error:', e.message);
+    const s = localStorage.getItem('ft-structure');
+    if(s){ structure = JSON.parse(s); backfillComments(); }
+    throw e; /* re-throw so init knows cloud failed */
+  }
+  /* load snapshots */
+  try{
+    const rows = await sbGet('snapshots', 'select=data&order=created_at.desc');
+    if(rows && rows.length){
+      snapshots = rows.map(r=>r.data).filter(Boolean);
+    }
+  }catch(e){
+    console.error('Snapshots load error:', e.message);
+    const sn = localStorage.getItem('ft-snapshots');
+    if(sn) snapshots = JSON.parse(sn);
+    throw e;
+  }
+}
+
+function backfillComments(){
+  ['mxn','usd'].forEach(c=>{
+    structure[c].forEach(sec=>{
+      sec.fields.forEach(f=>{ if(f.comment===undefined) f.comment=''; });
+    });
+  });
+}
+
+/* debounce structure saves so rapid edits don't fire too many requests */
+function persist(){
+  localStorage.setItem('ft-structure', JSON.stringify(structure));
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(()=>cloudSaveStructure(), 1200);
+}
+
+/* ════════════════════════════════════════
+   TABS
+════════════════════════════════════════ */
+function switchTab(t){
+  ['entry','summary','history'].forEach(p=>{
+    document.getElementById('page-'+p).classList.toggle('active',p===t);
+    document.getElementById('tab-'+p).classList.toggle('active',p===t);
+  });
+  if(t==='summary') updateSummary();
+  if(t==='history'){ renderHistory(); refreshSnapshots(true); }
+}
+
+function switchCurr(c){
+  curr=c;
+  document.getElementById('mxn-form').style.display=c==='mxn'?'block':'none';
+  document.getElementById('usd-form').style.display =c==='usd'?'block':'none';
+  document.getElementById('cbtn-mxn').classList.toggle('active',c==='mxn');
+  document.getElementById('cbtn-usd').classList.toggle('active',c==='usd');
+}
+
+/* ════════════════════════════════════════
+   RENDER
+════════════════════════════════════════ */
+const TYPE_ICON={asset:'💰',fixed:'🔒',debt:'💳',budget:'📋'};
+
+function renderForms(){ renderCurrForm('mxn'); renderCurrForm('usd'); }
+
+function renderCurrForm(c){
+  const container=document.getElementById(c+'-form');
+  const secs=structure[c], sym=c==='mxn'?'MXN':'USD';
+  let html='';
+  if(editMode) html+='<div class="edit-hint">✏️ Tap a label to rename &nbsp;·&nbsp; ＋ to add &nbsp;·&nbsp; ✕ to remove</div>';
+
+  secs.forEach((sec,si)=>{
+    const subtotal=sec.fields.reduce((a,f)=>a+(parseFloat(f.value)||0),0);
+    const stLabel=sec.type==='asset'?'Total':'Subtotal';
+    html+=`<div class="section-header">
+      <div class="sh-left">
+        <span class="sh-title">${TYPE_ICON[sec.type]||''} ${escHtml(sec.title)}</span>
+        ${editMode?`<button class="sh-add-btn" onclick="addField('${c}',${si})">＋</button>`:''}
+      </div>
+      <div class="sh-right">
+        <span class="sh-sublbl">${stLabel}</span>
+        <span class="sh-subtotal" id="st-${c}-${si}">${fmt(subtotal)} ${sym}</span>
+      </div>
+    </div>`;
+
+    sec.fields.forEach((f,fi)=>{
+      const isAdjOpen=openAdjId===f.id, isCmtOpen=openCmtId===f.id;
+      const hasNote=f.comment&&f.comment.trim()!=='';
+      const rowClass='field-row'+(editMode?' edit-mode':'')+(hasNote?' has-comment':'');
+      html+=`<div class="${rowClass}" id="row-${f.id}">`;
+      if(editMode){
+        html+=`<input class="field-lbl-input" type="text" value="${escHtml(f.label)}"
+          onchange="renameField('${c}',${si},${fi},this.value)"
+          onblur="renameField('${c}',${si},${fi},this.value)" placeholder="Field name">`;
+      } else {
+        html+=`<span class="field-lbl">${escHtml(f.label)}</span>`;
+      }
+      if(!editMode){
+        html+=`<button class="cmt-btn${hasNote?' has-note':''}${isCmtOpen?' open':''}"
+          onclick="toggleCmt('${f.id}')" title="${hasNote?'Edit comment':'Add comment'}">💬</button>`;
+      }
+      html+=`<div class="field-right">
+        <input class="field-val" type="number" inputmode="decimal"
+          id="val-${f.id}" value="${escHtml(f.value)}" placeholder="0.00"
+          oninput="onValueChange('${c}',${si},${fi},this.value)">`;
+      if(editMode){
+        html+=`<button class="icon-btn del" onclick="removeField('${c}',${si},${fi})" style="width:32px">✕</button>`;
+      } else {
+        html+=`<button class="adj-toggle${isAdjOpen?' open':''}" id="adjtgl-${f.id}"
+          onclick="toggleAdj('${f.id}')">±</button>`;
+      }
+      html+=`</div></div>`;
+
+      if(isAdjOpen&&!editMode){
+        html+=`<div class="adj-panel">
+          <span class="adj-hint">Amount:</span>
+          <input type="number" inputmode="decimal" id="adjamt-${f.id}" placeholder="0.00"
+            onkeydown="adjKeydown(event,'${c}',${si},${fi},'${f.id}')">
+          <button class="adj-btn plus"  onclick="applyAdj('${c}',${si},${fi},'${f.id}',1)">+</button>
+          <button class="adj-btn minus" onclick="applyAdj('${c}',${si},${fi},'${f.id}',-1)">−</button>
+        </div>`;
+      }
+      if(isCmtOpen&&!editMode){
+        html+=`<div class="cmt-panel">
+          <div class="cmt-panel-inner">
+            <textarea id="cmttxt-${f.id}" placeholder="Add a note…"
+              onkeydown="cmtKeydown(event,'${c}',${si},${fi},'${f.id}')"
+            >${escHtml(f.comment||'')}</textarea>
+            <div class="cmt-panel-btns">
+              <button class="cmt-save"  onclick="saveComment('${c}',${si},${fi},'${f.id}')">Save</button>
+              <button class="cmt-clear" onclick="clearComment('${c}',${si},${fi},'${f.id}')">Clear</button>
+            </div>
+          </div>
+        </div>`;
+      }
+      if(!isCmtOpen&&hasNote&&!editMode){
+        html+=`<div class="cmt-display" onclick="toggleCmt('${f.id}')">💬 ${escHtml(f.comment)}</div>`;
+      }
+    });
+  });
+
+  html+=`<div class="avail-card" id="${c}-avail-card">
+    <div class="lbl">Available this week (${sym})</div>
+    <div class="amount" id="${c}-avail-amt">$0.00</div>
+    <div class="sub"    id="${c}-avail-sub">Fill in values above</div>
+  </div>`;
+  container.innerHTML=html;
+
+  if(openAdjId){ const i=document.getElementById('adjamt-'+openAdjId); if(i) setTimeout(()=>i.focus(),30); }
+  if(openCmtId){ const t=document.getElementById('cmttxt-'+openCmtId); if(t) setTimeout(()=>{t.focus();t.setSelectionRange(t.value.length,t.value.length);},30); }
+  recalc();
+}
+
+/* ════════════════════════════════════════
+   COMMENT
+════════════════════════════════════════ */
+function toggleCmt(fid){ openCmtId=openCmtId===fid?null:fid; openAdjId=null; renderForms(); }
+
+function saveComment(c,si,fi,fid){
+  const ta=document.getElementById('cmttxt-'+fid);
+  structure[c][si].fields[fi].comment=ta?ta.value.trim():'';
+  openCmtId=null; persist(); renderForms();
+  toast(structure[c][si].fields[fi].comment?'Comment saved':'Comment cleared');
+}
+function clearComment(c,si,fi,fid){
+  structure[c][si].fields[fi].comment='';
+  openCmtId=null; persist(); renderForms(); toast('Comment cleared');
+}
+function cmtKeydown(e,c,si,fi,fid){
+  if((e.key==='Enter'&&(e.metaKey||e.ctrlKey))||e.key==='Escape'){
+    e.preventDefault();
+    e.key==='Escape'?(openCmtId=null,renderForms()):saveComment(c,si,fi,fid);
+  }
+}
+
+/* ════════════════════════════════════════
+   ADJUSTER
+════════════════════════════════════════ */
+function toggleAdj(fid){ openAdjId=openAdjId===fid?null:fid; openCmtId=null; renderForms(); }
+
+function applyAdj(c,si,fi,fid,sign){
+  const amtEl=document.getElementById('adjamt-'+fid);
+  const amt=parseFloat(amtEl?amtEl.value:0)||0;
+  if(amt===0){toast('Enter an amount first');return;}
+  const next=Math.round(((parseFloat(structure[c][si].fields[fi].value)||0)+sign*amt)*100)/100;
+  structure[c][si].fields[fi].value=String(next);
+  const valEl=document.getElementById('val-'+fid);
+  if(valEl) valEl.value=next;
+  if(amtEl) amtEl.value='';
+  recalcLive(c,si); persist();
+  toast((sign>0?'+':'-')+'$'+Math.abs(amt).toFixed(2)+' applied');
+}
+function adjKeydown(e,c,si,fi,fid){
+  if(e.key==='Enter') applyAdj(c,si,fi,fid,1);
+  if(e.key==='Escape'){openAdjId=null;renderForms();}
+}
+
+/* ════════════════════════════════════════
+   FIELD EDITS
+════════════════════════════════════════ */
+function renameField(c,si,fi,val){ structure[c][si].fields[fi].label=val; persist(); }
+
+function addField(c,si){
+  const id=uid();
+  structure[c][si].fields.push({id,label:'New field',value:'',comment:''});
+  persist(); renderForms();
+  setTimeout(()=>{ const r=document.getElementById('row-'+id); if(r){const i=r.querySelector('.field-lbl-input');if(i)i.select();} },50);
+}
+function removeField(c,si,fi){
+  if(structure[c][si].fields.length<=1){toast('Need at least 1 field');return;}
+  structure[c][si].fields.splice(fi,1); persist(); renderForms();
+}
+function onValueChange(c,si,fi,val){ structure[c][si].fields[fi].value=val; recalcLive(c,si); }
+
+/* ════════════════════════════════════════
+   CALCULATIONS
+════════════════════════════════════════ */
+function recalcLive(c,si){
+  const sec=structure[c][si], sym=c==='mxn'?'MXN':'USD';
+  const sub=sec.fields.reduce((a,f)=>a+(parseFloat(f.value)||0),0);
+  const el=document.getElementById('st-'+c+'-'+si);
+  if(el) el.textContent=fmt(sub)+' '+sym;
+  recalc();
+}
+function recalc(){
+  ['mxn','usd'].forEach(c=>{
+    const r=calcCurr(c), sym=c==='mxn'?'MXN':'USD';
+    const card=document.getElementById(c+'-avail-card'); if(!card) return;
+    card.className='avail-card'+(r.avail<0?' neg':'');
+    document.getElementById(c+'-avail-amt').textContent=fmt(r.avail)+' '+sym;
+    document.getElementById(c+'-avail-sub').textContent='Assets '+fmt(r.assets)+' − Expenses '+fmt(r.fixed+r.debts+r.budget);
+  });
+}
+function calcCurr(c){
+  let assets=0,fixed=0,debts=0,budget=0;
+  structure[c].forEach(sec=>{
+    const t=sec.fields.reduce((a,f)=>a+(parseFloat(f.value)||0),0);
+    if(sec.type==='asset') assets+=t;
+    if(sec.type==='fixed') fixed+=t;
+    if(sec.type==='debt')  debts+=t;
+    if(sec.type==='budget')budget+=t;
+  });
+  return{assets,fixed,debts,budget,avail:assets-fixed-debts-budget};
+}
+function fmt(n,dec){
+  const abs=Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:dec??2,maximumFractionDigits:dec??2});
+  return(n<0?'-':'')+'$'+abs;
+}
+function updateSummary(){
+  const lbl = document.getElementById('sm-source-lbl');
+
+  /* If there's a saved snapshot, use its totals */
+  if(snapshots.length){
+    const snap = snapshots[0];
+    if(lbl) lbl.textContent = '📌 Latest snapshot: ' + snap.label;
+
+    /* Recalculate totals from the snapshot's saved field values */
+    ['mxn','usd'].forEach(c=>{
+      const sym = c==='mxn'?'MXN':'USD';
+      const ac  = c==='mxn'?'var(--green-mid)':'var(--blue-dark)';
+
+      /* Re-derive section totals from the snapshot values */
+      let assets=0, fixed=0, debts=0, budget=0;
+      structure[c].forEach(sec=>{
+        const t = sec.fields.reduce((a,f)=>{
+          const saved = snap.values[f.id];
+          const v = saved ? (typeof saved==='object' ? parseFloat(saved.value)||0 : parseFloat(saved)||0) : 0;
+          return a+v;
+        }, 0);
+        if(sec.type==='asset')  assets+=t;
+        if(sec.type==='fixed')  fixed+=t;
+        if(sec.type==='debt')   debts+=t;
+        if(sec.type==='budget') budget+=t;
+      });
+      const avail = assets-fixed-debts-budget;
+
+      document.getElementById('sm-'+c+'-assets').textContent = fmt(assets)+' '+sym;
+      document.getElementById('sm-'+c+'-fixed').textContent  = fmt(fixed) +' '+sym;
+      document.getElementById('sm-'+c+'-debts').textContent  = fmt(debts) +' '+sym;
+      document.getElementById('sm-'+c+'-budget').textContent = fmt(budget)+' '+sym;
+      const el = document.getElementById('sm-'+c+'-avail');
+      el.textContent = fmt(avail)+' '+sym;
+      el.style.color = avail<0?'var(--red-text)':ac;
+    });
+
+  } else {
+    /* No snapshots yet — fall back to live entry values */
+    if(lbl) lbl.textContent = 'Live values (no snapshot saved yet)';
+    ['mxn','usd'].forEach(c=>{
+      const r=calcCurr(c), sym=c==='mxn'?'MXN':'USD', ac=c==='mxn'?'var(--green-mid)':'var(--blue-dark)';
+      document.getElementById('sm-'+c+'-assets').textContent = fmt(r.assets)+' '+sym;
+      document.getElementById('sm-'+c+'-fixed').textContent  = fmt(r.fixed) +' '+sym;
+      document.getElementById('sm-'+c+'-debts').textContent  = fmt(r.debts) +' '+sym;
+      document.getElementById('sm-'+c+'-budget').textContent = fmt(r.budget)+' '+sym;
+      const el = document.getElementById('sm-'+c+'-avail');
+      el.textContent = fmt(r.avail)+' '+sym;
+      el.style.color = r.avail<0?'var(--red-text)':ac;
+    });
+  }
+}
+
+/* ════════════════════════════════════════
+   EDIT MODE
+════════════════════════════════════════ */
+function toggleEditMode(){
+  editMode=!editMode; openAdjId=null; openCmtId=null;
+  const btn=document.getElementById('edit-toggle-btn');
+  if(btn) btn.textContent=editMode?'✅ Done editing':'✏️ Edit fields';
+  renderForms();
+  if(!editMode){persist();toast('Changes saved');}
+}
+function injectEditBtn(){
+  const btn=document.createElement('button');
+  btn.id='edit-toggle-btn'; btn.className='btn-outline';
+  btn.textContent='✏️ Edit fields'; btn.onclick=toggleEditMode;
+  btn.style.marginTop='4px';
+  const savBtn=document.querySelector('#page-entry .btn-primary');
+  savBtn.parentNode.insertBefore(btn,savBtn);
+}
+
+/* ════════════════════════════════════════
+   REFRESH SNAPSHOTS FROM CLOUD
+════════════════════════════════════════ */
+async function refreshSnapshots(silent){
+  setSyncDot('syncing');
+  try{
+    const rows=await sbGet('snapshots','select=data&order=created_at.desc');
+    if(rows&&rows.length){
+      snapshots=rows.map(r=>r.data).filter(Boolean);
+      localStorage.setItem('ft-snapshots',JSON.stringify(snapshots));
+    } else {
+      snapshots=[];
+    }
+    setSyncDot('idle');
+    /* re-render history if it's currently visible */
+    if(document.getElementById('page-history').classList.contains('active')) renderHistory();
+    /* re-render summary too if visible */
+    if(document.getElementById('page-summary').classList.contains('active')) updateSummary();
+    if(!silent) toast('Snapshots updated ✓');
+  }catch(e){
+    setSyncDot('error');
+    if(!silent) toast('Could not reach cloud');
+  }
+}
+
+/* ════════════════════════════════════════
+   SNAPSHOTS
+════════════════════════════════════════ */
+function gatherValues(){
+  const vals={};
+  ['mxn','usd'].forEach(c=>{
+    structure[c].forEach(sec=>{
+      sec.fields.forEach(f=>{ vals[f.id]={value:f.value,comment:f.comment||''}; });
+    });
+  });
+  return vals;
+}
+
+async function saveSnapshot(){
+  const now=new Date();
+  const label=now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+    +' '+now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  const mxn=calcCurr('mxn'), usd=calcCurr('usd');
+  const snap={id:Date.now(),label,values:gatherValues(),mxn,usd};
+  snapshots.unshift(snap);
+  localStorage.setItem('ft-snapshots',JSON.stringify(snapshots));
+  toast('Saving snapshot…');
+  await cloudSaveSnapshot(snap);
+  toast('Snapshot saved ✓');
+}
+
+function loadSnapshot(id){
+  const snap=snapshots.find(s=>s.id===id); if(!snap) return;
+  ['mxn','usd'].forEach(c=>{
+    structure[c].forEach(sec=>{
+      sec.fields.forEach(f=>{
+        const saved=snap.values[f.id];
+        if(saved!==undefined){
+          if(typeof saved==='object'){f.value=saved.value||'';f.comment=saved.comment||'';}
+          else{f.value=saved;f.comment='';}
+        }
+      });
+    });
+  });
+  openAdjId=null; openCmtId=null;
+  renderForms(); switchTab('entry'); toast('Snapshot loaded');
+}
+
+async function deleteSnapshot(id,e){
+  e.stopPropagation();
+  if(!confirm('Delete this snapshot?')) return;
+  snapshots=snapshots.filter(s=>s.id!==id);
+  localStorage.setItem('ft-snapshots',JSON.stringify(snapshots));
+  renderHistory();
+  await cloudDeleteSnapshot(id);
+}
+
+function renderHistory(){
+  const el=document.getElementById('history-list');
+  if(!snapshots.length){
+    el.innerHTML='<div class="empty-state"><div class="icon">📅</div>No snapshots saved yet.<br>Go to Entry and tap <strong>Save Snapshot</strong>.</div>';
+    return;
+  }
+  el.innerHTML=snapshots.map(s=>`
+    <div class="snap-item" onclick="loadSnapshot(${s.id})">
+      <div style="flex:1;min-width:0">
+        <div class="snap-date">${s.label}</div>
+        <div class="snap-tags">
+          <span class="snap-tag mxn ${s.mxn.avail<0?'neg':''}">${fmt(s.mxn.avail,0)} MXN</span>
+          <span class="snap-tag usd ${s.usd.avail<0?'neg':''}">${fmt(s.usd.avail)} USD</span>
+        </div>
+      </div>
+      <button class="snap-del" onclick="deleteSnapshot(${s.id},event)">✕</button>
+    </div>
+  `).join('');
+}
+
+/* ════════════════════════════════════════
+   CLEAR
+════════════════════════════════════════ */
+function clearValues(){
+  if(!confirm('Clear all entered values? (Field names and comments are kept)')) return;
+  ['mxn','usd'].forEach(c=>{
+    structure[c].forEach(sec=>{ sec.fields.forEach(f=>{f.value='';});});
+  });
+  openAdjId=null; openCmtId=null; persist(); renderForms(); toast('Values cleared');
+}
+
+/* ════════════════════════════════════════
+   UTIL
+════════════════════════════════════════ */
+function escHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.style.opacity='1';
+  clearTimeout(el._t); el._t=setTimeout(()=>{el.style.opacity='0';},2200);
+}
+
+/* ════════════════════════════════════════
+   INIT
+════════════════════════════════════════ */
+(async()=>{
+  const loSub=document.getElementById('lo-sub');
+  try{
+    loSub.textContent='Loading your data…';
+    await cloudLoad();
+    loSub.textContent='Ready!';
+  }catch(e){
+    const msg = e.message || String(e);
+    loSub.textContent='⚠️ Cloud error — using local data';
+    console.error('Init cloud error:', msg);
+    const s=localStorage.getItem('ft-structure');
+    const sn=localStorage.getItem('ft-snapshots');
+    if(s){ structure=JSON.parse(s); backfillComments(); }
+    if(sn) snapshots=JSON.parse(sn);
+    setTimeout(()=> toast('⚠️ Cloud error: ' + msg.slice(0,80)), 600);
+  }
+  setTimeout(()=>{
+    const ov=document.getElementById('loading-overlay');
+    if(ov) ov.classList.add('hidden');
+    setTimeout(()=>{ if(ov) ov.style.display='none'; },350);
+  },400);
+  renderForms();
+  injectEditBtn();
+  setSyncDot('idle');
+
+  /* Refresh snapshots whenever the page becomes visible again (switching tabs/apps) */
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState==='visible') refreshSnapshots(true);
+  });
+
+  /* Also refresh every 60s while the page is open */
+  setInterval(()=>{ if(document.visibilityState==='visible') refreshSnapshots(true); }, 60000);
+})();
+</script>
+</body>
+</html>
